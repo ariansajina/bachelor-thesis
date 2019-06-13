@@ -1,4 +1,4 @@
-import os
+import os, time
 import numpy as np
 import pandas as pd
 
@@ -9,10 +9,10 @@ params = {
         "mrate" : 0.05,
         "mrate_mean" : 0.05,
         "mrate_std" : np.sqrt(0.05),
-        "number_of_jumps" : 1000,
+        "number_of_jumps" : 10000,
         "init_pop_size" : 1000,
         "number_of_ages" : 10,
-        "max_age" : 3.,
+        "max_age" : 9.,
         "maturity" : 0,
         "init_surv" : 1.2,
         "init_repr": 1.2,
@@ -56,22 +56,29 @@ class population_process:
         self.reproduction = self.init_trait((self.N, self.number_of_ages - self.maturity), init=self.init_repr, \
                 bound=self.bound_repr, prng=self.prng)
         self.birth_date = np.zeros(self.N)
-        self.death_date = np.zeros(self.N)
+        self.death_date = np.full(self.N, np.nan)
         self.id = np.zeros(self.N)
         self.parent_id = np.full(self.N, np.nan)
         self.alive = np.ones(self.N)
+        self.agerange = np.linspace(0, self.max_age, self.number_of_ages+1)
 
     def new_id(self):
         return np.max(self.id)+1
 
     def get_age(self, ix):
-        return np.where(np.linspace(0, self.max_age, self.number_of_ages) <= self.time - self.birth_date[ix])[0][-1]
+        return np.argmax(self.agerange >= self.time - self.birth_date[ix]) - 1
 
     def get_survival(self, ix):
-        return self.survival[ix, self.get_age(ix)]
+        if self.get_age(ix) < self.max_age:
+            return self.survival[ix, self.get_age(ix)]
+        else:
+            return 0
 
     def get_reproduction(self, ix):
-        return self.reproduction[ix, self.get_age(ix) - self.maturity]
+        if self.get_age(ix) >= self.maturity:
+            return self.reproduction[ix, self.get_age(ix) - self.maturity]
+        else:
+            return 0
 
     def mutate(self, x):
         return (x + self.prng.normal(self.mrate_mean, self.mrate_std, self.number_of_ages)).clip(min=0)
@@ -93,7 +100,7 @@ class population_process:
         self.survival = np.vstack((self.survival, survival))
         self.reproduction = np.vstack((self.reproduction, reproduction))
         self.birth_date = np.append(self.birth_date, birth_date)
-        self.death_date = np.append(self.death_date, 0.)
+        self.death_date = np.append(self.death_date, np.nan)
         self.id = np.append(self.id, _id)
         self.parent_id = np.append(self.parent_id, parent_id)
         self.alive = np.append(self.alive, 1)
@@ -165,6 +172,8 @@ class population_process:
     # TODO maybe add output method and meta as dict
 
 # main
+starttime = time.time()
 pop = population_process(params)
 pop.trajectory()
 pop.to_csv()
+print 'Time taken: {} hours.'.format((time.time()-starttime)/3600.)
