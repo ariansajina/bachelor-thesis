@@ -8,7 +8,7 @@ import pandas as pd
 def my_argmax(arr, axis):
     if axis == 1:
         where = np.sum(arr, axis=1) == 0
-        res = np.clip(np.argmax(arr, axis=1)-1, a_min=0)
+        res = (np.argmax(arr, axis=1)-1).clip(0)
         res[where] = len(arr) - 1
         return res
     elif axis == 0:
@@ -70,7 +70,7 @@ class population_process:
 
     def mutate(self, x):
         # trait must remain nonnegative
-        return np.clip(x + self.prng.normal(self.mrate_mean, self.mrate_std, self.number_of_ages), a_min=0)
+        return (x + self.prng.normal(self.mrate_mean, self.mrate_std, self.number_of_ages)).clip(0)
 
     def AR_clone(self, ix, norm):
         return self.get_reproduction(ix) * (1 - (self.mrate * self.mrate + 2 * self.mrate * (1-self.mrate))) / norm
