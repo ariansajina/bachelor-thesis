@@ -68,9 +68,9 @@ class population_process:
     def get_reproduction(self, ix):
         return self.reproduction[ix, self.get_agecard(ix)]
 
-    def mutate(self, x):
+    def mutate(self, x, mean):
         # trait must remain nonnegative
-        return (x + self.prng.normal(self.mrate_mean, self.mrate_std, self.number_of_ages)).clip(0)
+        return (x + self.prng.normal(mean, self.mrate_std, self.number_of_ages)).clip(0)
 
     def AR_clone(self, ix, norm):
         return self.get_reproduction(ix) * (1 - (self.mrate * self.mrate + 2 * self.mrate * (1-self.mrate))) / norm
@@ -134,13 +134,14 @@ class population_process:
         elif a1 < u <= a2:
             traits = [self.death[where_alive][ix], self.reproduction[where_alive][ix]]
             choice = self.prng.choice([0,1])
-            traits_mut = [traits[0] if choice else self.mutate(traits[0]),\
-                    self.mutate(traits[1]) if choice else traits[1]]
+            traits_mut = [traits[0] if choice else self.mutate(traits[0], abs(self.mrate_mean)),\
+                    self.mutate(traits[1], self.mrate_mean) if choice else traits[1]]
             self.add(traits_mut[0], traits_mut[1], self.time + jump_time, self.new_id(), self.id[where_alive][ix])
 
         # if two mutations
         elif a2 < u <= a3:
-            self.add(self.mutate(self.death[where_alive][ix]), self.mutate(self.reproduction[where_alive][ix]),\
+            self.add(self.mutate(self.death[where_alive][ix], abs(self.mrate_mean)), \
+                    self.mutate(self.reproduction[where_alive][ix], self,mrate_mean),\
                     self.time + jump_time, self.new_id(), self.id[where_alive][ix])
 
         # if death
