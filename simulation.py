@@ -3,17 +3,19 @@ import numpy as np
 
 import pandas as pd
 
+# TODO bound birth and death rate from above
+
 # auxiliary functions
 
-def my_argmax(arr, axis):
+def my_argmax(arr, axis, _max):
     if axis == 1:
         where = np.sum(arr, axis=1) == 0
         res = (np.argmax(arr, axis=1)-1).clip(0)
-        res[where] = len(arr) - 1
+        res[where] = _max
         return res
     elif axis == 0:
         if np.sum(arr) == 0:
-            return len(arr) - 1
+            return _max
         else:
             return max(0,np.argmax(arr, axis=0)-1)
 
@@ -60,7 +62,7 @@ class population_process:
         return np.max(self.id)+1
 
     def get_agecard(self, ix):
-        return my_argmax(self.agebin_mask >= (self.time - self.birth_date[ix]), axis=0)
+        return my_argmax(self.agebin_mask >= (self.time - self.birth_date[ix]), axis=0, _max=self.number_of_ages-1)
 
     def get_death(self, ix):
         return self.death[ix, self.get_agecard(ix)]
@@ -89,7 +91,7 @@ class population_process:
         # find cardinal age of living individuals
         age = self.time - self.birth_date[where_alive]
         agecard = my_argmax(np.tile(self.agebin_mask,self.N).reshape(self.N, self.number_of_ages) >= \
-                np.repeat(age,self.number_of_ages).reshape(self.N, self.number_of_ages), axis=1)
+                np.repeat(age,self.number_of_ages).reshape(self.N, self.number_of_ages), axis=1, _max=self.number_of_ages-1)
         # sum the jump rates
         death_rates = self.death[where_alive][np.arange(self.N), agecard]
         reproduction_rates = self.reproduction[where_alive][np.arange(self.N), agecard]
@@ -141,7 +143,7 @@ class population_process:
         # if two mutations
         elif a2 < u <= a3:
             self.add(self.mutate(self.death[where_alive][ix], abs(self.mrate_mean)), \
-                    self.mutate(self.reproduction[where_alive][ix], self,mrate_mean),\
+                    self.mutate(self.reproduction[where_alive][ix], self.mrate_mean),\
                     self.time + jump_time, self.new_id(), self.id[where_alive][ix])
 
         # if death
