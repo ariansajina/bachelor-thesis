@@ -8,11 +8,11 @@ params = {
         "mrate_std" : 0.25, # mutation standard deviation as fraction of trait (gaussian) (absolute)
         "number_of_jumps" : 1000, # number of jumps to simulate
         "init_pop_size" : 10000, # initial population size
-        "number_of_ages" : 11, # number of ages
-        "max_age" : 1., # maximal age
+        "number_of_ages" : 11, # number of biological ages
+        "max_age" : 10., # maximal biological age
         "init_death" : 0.5, # initial death trait ['random'/float]
         "init_repr": 1.2, # initial reproduction trait ['random'/float]
-        "bound_death": [0.5,1.5], # if random, bound for death trait
-        "bound_repr": [0.5,1.5], # if random, bound for reoriduction trait
-        "prng_init" : "" # seed value for pseudo-random number generator
+        "bound_death": [0.,2.], # bound for death rate
+        "bound_repr": [0.,2,], # bound for birth rate
+        "prng_init" : "" # seed value for pseudo-random number generator, generated automatically if ""
     }

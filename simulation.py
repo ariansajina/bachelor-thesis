@@ -3,8 +3,6 @@ import numpy as np
 
 import pandas as pd
 
-# TODO bound birth and death rate from above
-
 # auxiliary functions
 
 def my_argmax(arr, axis, _max):
@@ -19,6 +17,7 @@ def my_argmax(arr, axis, _max):
         else:
             return max(0,np.argmax(arr, axis=0)-1)
 
+# TODO add check that init is in bound
 def init_trait(dim, bound, init="random", prng=""):
         if isinstance(init, (int, long, float)):
             trait = np.zeros(dim) + init
@@ -71,9 +70,10 @@ class population_process:
     def get_reproduction(self, ix):
         return self.reproduction[ix, self.get_agecard(ix)]
 
-    def mutate(self, x, mean):
+    def mutate(self, x, mean, bound):
         # trait must remain nonnegative
-        return (x + self.prng.normal(mean, self.mrate_std, self.number_of_ages)).clip(0)
+        return np.clip(x + self.prng.normal(mean, self.mrate_std, self.number_of_ages),\
+                bound[0], bound[1])
 
     def AR_clone(self, ix, norm):
         return self.get_reproduction(ix) * (1 - (self.mrate * self.mrate + 2 * self.mrate * (1-self.mrate))) / norm
@@ -119,7 +119,7 @@ class population_process:
         # gillespie: get time of next jump and then choose which individual jumped,
         # whereby the probability that an individual has jumped is proportional to its rate
         jump_time = self.prng.exponential(1) / rtot
-        # NOTE caution! ix vs ix_in_all
+        # NOTE ix is an index from the living population, ix_in_all is the index from the complete population object
         ix = self.prng.choice(np.arange(self.N), p=probs)
         ix_in_all = np.arange(self.id.size)[where_alive][ix]
 
@@ -137,14 +137,17 @@ class population_process:
         elif a1 < u <= a2:
             traits = [self.death[where_alive][ix], self.reproduction[where_alive][ix]]
             choice = self.prng.choice([0,1])
-            traits_mut = [traits[0] if choice else self.mutate(traits[0], abs(self.mrate_mean)),\
-                    self.mutate(traits[1], self.mrate_mean) if choice else traits[1]]
+            # NOTE abs here makes sure that when mutation mean is negative (more detrimental mutations), mutation mean for death rate is positive as this corresponds to detrimental mutations
+            traits_mut = [traits[0] if choice else \
+                    self.mutate(traits[0], abs(self.mrate_mean), self.bound_death),\
+                    self.mutate(traits[1], self.mrate_mean, self.bound_repr)\
+                    if choice else traits[1]]
             self.add(traits_mut[0], traits_mut[1], self.time + jump_time, self.new_id(), self.id[where_alive][ix])
 
         # if two mutations
         elif a2 < u <= a3:
-            self.add(self.mutate(self.death[where_alive][ix], abs(self.mrate_mean)), \
-                    self.mutate(self.reproduction[where_alive][ix], self.mrate_mean),\
+            self.add(self.mutate(self.death[where_alive][ix], abs(self.mrate_mean), self.bound_death), \
+                    self.mutate(self.reproduction[where_alive][ix], self.mrate_mean, self.bound_repr),\
                     self.time + jump_time, self.new_id(), self.id[where_alive][ix])
 
         # if death
