@@ -53,13 +53,14 @@ class population_process:
         self.birth_date = np.zeros(self.N)
         self.death_date = np.full(self.N, np.nan)
         self.id = np.zeros(self.N).astype(int)
+        self.max_id = 0
         self.parent_id = np.full(self.N, np.nan)
         self.alive = np.ones(self.N)
         self.agebin_mask = np.linspace(0, self.max_age, self.number_of_ages)
 
-    # TODO optimize this
     def new_id(self):
-        return np.max(self.id)+1
+        self.max_id += 1
+        return self.max_id
 
     def get_agecard(self, ix):
         return my_argmax(self.agebin_mask >= (self.time - self.birth_date[ix]), axis=0, _max=self.number_of_ages-1)
