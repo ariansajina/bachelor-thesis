@@ -70,9 +70,8 @@ class population_process:
     def get_reproduction(self, ix):
         return self.reproduction[ix, self.get_agecard(ix)]
 
-    def mutate(self, x, mean, bound):
-        # trait must remain nonnegative
-        return np.clip(x + self.prng.normal(mean, self.mrate_std, self.number_of_ages),\
+    def mutate(self, x, mean, bound, dim):
+        return np.clip(x + self.prng.normal(mean, self.mrate_std, dim),\
                 bound[0], bound[1])
 
     def AR_clone(self, ix, norm):
@@ -139,15 +138,15 @@ class population_process:
             choice = self.prng.choice([0,1])
             # NOTE abs here makes sure that when mutation mean is negative (more detrimental mutations), mutation mean for death rate is positive as this corresponds to detrimental mutations
             traits_mut = [traits[0] if choice else \
-                    self.mutate(traits[0], abs(self.mrate_mean), self.bound_death),\
-                    self.mutate(traits[1], self.mrate_mean, self.bound_repr)\
+                    self.mutate(traits[0], abs(self.mrate_mean), self.bound_death, self.number_of_ages),\
+                    self.mutate(traits[1], self.mrate_mean, self.bound_repr, self.number_of_ages)\
                     if choice else traits[1]]
             self.add(traits_mut[0], traits_mut[1], self.time + jump_time, self.new_id(), self.id[where_alive][ix])
 
         # if two mutations
         elif a2 < u <= a3:
-            self.add(self.mutate(self.death[where_alive][ix], abs(self.mrate_mean), self.bound_death), \
-                    self.mutate(self.reproduction[where_alive][ix], self.mrate_mean, self.bound_repr),\
+            self.add(self.mutate(self.death[where_alive][ix], abs(self.mrate_mean), self.bound_death, self.number_of_ages),\
+                    self.mutate(self.reproduction[where_alive][ix], self.mrate_mean, self.bound_repr, self.number_of_ages),\
                     self.time + jump_time, self.new_id(), self.id[where_alive][ix])
 
         # if death
