@@ -1,21 +1,22 @@
 import os, time, sys, imp
 import numpy as np
+from scipy.special import binom
 
 import pandas as pd
 
 # auxiliary functions
 
-def my_argmax(arr, axis, _max):
+def my_argmax(arr, axis, _max, subtract=0):
     if axis == 1:
         where = np.sum(arr, axis=1) == 0
-        res = (np.argmax(arr, axis=1)-1).clip(0)
+        res = (np.argmax(arr, axis=1)-subtract).clip(0)
         res[where] = _max
         return res
     elif axis == 0:
         if np.sum(arr) == 0:
             return _max
         else:
-            return max(0,np.argmax(arr, axis=0)-1)
+            return max(0,np.argmax(arr, axis=0)-subtract)
 
 # TODO add check that init is in bound
 def init_trait(dim, bound, init="random", prng=""):
@@ -56,13 +57,18 @@ class population_process:
         self.parent_id = np.full(self.N, np.nan)
         self.alive = np.ones(self.N)
         self.agebin_mask = np.linspace(0, self.max_age, self.number_of_ages)
+        # construct array with probabilites that 0..2*d mutations occur
+        self.n_mut_probs = \
+                binom(self.number_of_ages*2, np.arange(self.number_of_ages*2+1)) *\
+                np.power((np.zeros(self.number_of_ages*2+1)+self.mrate),np.arange(self.number_of_ages*2+1)) * \
+                np.power((np.ones(self.number_of_ages*2+1)-self.mrate),np.arange(self.number_of_ages*2+1)[::-1])
 
     def new_id(self):
         self.max_id += 1
         return self.max_id
 
     def get_agecard(self, ix):
-        return my_argmax(self.agebin_mask >= (self.time - self.birth_date[ix]), axis=0, _max=self.number_of_ages-1)
+        return my_argmax(self.agebin_mask >= (self.time - self.birth_date[ix]), axis=0, _max=self.number_of_ages-1, subtract=1)
 
     def get_death(self, ix):
         return self.death[ix, self.get_agecard(ix)]
@@ -74,24 +80,15 @@ class population_process:
         return np.clip(x + self.prng.normal(mean, self.mrate_std, dim),\
                 bound[0], bound[1])
 
-    def AR_clone(self, ix, norm):
-        return self.get_reproduction(ix) * (1 - (self.mrate * self.mrate + 2 * self.mrate * (1-self.mrate))) / norm
-
-    def AR_1mut(self, ix, norm):
-        return self.AR_clone(ix, norm) + self.get_reproduction(ix) * 2 * self.mrate * (1-self.mrate) / norm
-
-    def AR_2mut(self, ix, norm):
-        return self.AR_1mut(ix, norm) + self.get_reproduction(ix) * self.mrate * self.mrate/ norm
-
-#    def AR_death(self, ix, norm):
-#        return self.AR_2mut(ix, norm) + (self.get_death(ix) + self.N * self.eta) / norm
+    def AR_birth(self, ix ,norm):
+        return np.cumsum(self.get_reproduction(ix) * self.n_mut_probs / norm)
 
     # this corresponds to intmax in the bd-paper
     def jump_rate_sum(self, where_alive):
         # find cardinal age of living individuals
         age = self.time - self.birth_date[where_alive]
         agecard = my_argmax(np.tile(self.agebin_mask,self.N).reshape(self.N, self.number_of_ages) >= \
-                np.repeat(age,self.number_of_ages).reshape(self.N, self.number_of_ages), axis=1, _max=self.number_of_ages-1)
+                np.repeat(age,self.number_of_ages).reshape(self.N, self.number_of_ages), axis=1, _max=self.number_of_ages-1, subtract=1)
         # sum the jump rates
         death_rates = self.death[where_alive][np.arange(self.N), agecard]
         reproduction_rates = self.reproduction[where_alive][np.arange(self.N), agecard]
@@ -122,32 +119,28 @@ class population_process:
         ix = self.prng.choice(np.arange(self.N), p=probs)
         ix_in_all = np.arange(self.id.size)[where_alive][ix]
 
-        # choose which event took place in the jump
+        # choose how many mutation occur at birth or death
         u = self.prng.rand()
-        a1 = self.AR_clone(ix_in_all, rates[ix])
-        a2 = self.AR_1mut(ix_in_all, rates[ix])
-        a3 = self.AR_2mut(ix_in_all, rates[ix])
+        # use value self.number_of_ages*2+1 as flag for death
+        how_many_mut = my_argmax(self.AR_birth(ix_in_all, rates[ix]) > u, axis=0, _max=self.number_of_ages*2+1, subtract=0)
 
-        # if clonal birth
-        if u <= a1:
-            self.add(self.death[where_alive][ix], self.reproduction[where_alive][ix], self.time + jump_time, self.id[where_alive][ix], self.id[where_alive][ix])
+        # if birth, choose uniformly how_many_mut age-specific traits to mutate
+        if how_many_mut < self.number_of_ages*2+1:
+            which = self.prng.choice(np.arange(self.number_of_ages*2), how_many_mut, replace=False)
+            which_death = which[which < self.number_of_ages]
+            which_repr = which[which >= self.number_of_ages]-self.number_of_ages
 
-        # if one mutation
-        elif a1 < u <= a2:
-            traits = [self.death[where_alive][ix], self.reproduction[where_alive][ix]]
-            choice = self.prng.choice([0,1])
+            offspring_death = self.death[where_alive][ix]
+            offspring_repr = self.reproduction[where_alive][ix]
             # NOTE abs here makes sure that when mutation mean is negative (more detrimental mutations), mutation mean for death rate is positive as this corresponds to detrimental mutations
-            traits_mut = [traits[0] if choice else \
-                    self.mutate(traits[0], abs(self.mrate_mean), self.bound_death, self.number_of_ages),\
-                    self.mutate(traits[1], self.mrate_mean, self.bound_repr, self.number_of_ages)\
-                    if choice else traits[1]]
-            self.add(traits_mut[0], traits_mut[1], self.time + jump_time, self.new_id(), self.id[where_alive][ix])
+            offspring_death[which_death] = self.mutate(self.death[where_alive][ix][which_death], abs(self.mrate_mean),\
+                                        self.bound_death, which_death.size)
+            offspring_repr[which_repr] = self.mutate(self.reproduction[where_alive][ix][which_repr], self.mrate_mean,\
+                                        self.bound_death, which_repr.size)
 
-        # if two mutations
-        elif a2 < u <= a3:
-            self.add(self.mutate(self.death[where_alive][ix], abs(self.mrate_mean), self.bound_death, self.number_of_ages),\
-                    self.mutate(self.reproduction[where_alive][ix], self.mrate_mean, self.bound_repr, self.number_of_ages),\
-                    self.time + jump_time, self.new_id(), self.id[where_alive][ix])
+            parent_id = self.id[where_alive][ix]
+            offspring_id = self.new_id() if how_many_mut > 0 else parent_id
+            self.add(offspring_death, offspring_repr, self.time + jump_time, offspring_id, parent_id)
 
         # if death
         else:
