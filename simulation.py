@@ -137,7 +137,7 @@ class population_process:
             offspring_death[which_death] = self.mutate(self.death[where_alive][ix][which_death], abs(self.mrate_mean),\
                                         self.bound_death, which_death.size)
             offspring_repr[which_repr] = self.mutate(self.reproduction[where_alive][ix][which_repr], self.mrate_mean,\
-                                        self.bound_death, which_repr.size)
+                                        self.bound_repr, which_repr.size)
 
             parent_id = self.id[where_alive][ix]
             offspring_id = self.new_id() if how_many_mut > 0 else parent_id
