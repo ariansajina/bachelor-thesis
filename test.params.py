@@ -6,9 +6,9 @@ params = {
         "mrate" : 0.01, # chance of mutation occurance per birth event
         "mrate_mean" : 0., # mutation expected value (gaussian), negative for skewed toward deleterious mutations
         "mrate_std" : 0.25, # mutation standard deviation as fraction of trait (gaussian) (absolute)
-        "number_of_jumps" : 1000, # number of jumps to simulate
+        "number_of_jumps" : 10000, # number of jumps to simulate
         "init_pop_size" : 10000, # initial population size
-        "number_of_ages" : 11, # number of biological ages
+        "number_of_ages" : 11+1, # number of biological ages (max age is number_of_ages-1, last age is just holder for control locus)
         "max_age" : 10., # maximal biological age
         "init_death" : 0.5, # initial death trait ['random'/float]
         "init_repr": 1.2, # initial reproduction trait ['random'/float]

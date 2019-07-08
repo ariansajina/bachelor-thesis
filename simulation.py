@@ -57,7 +57,7 @@ class population_process:
         self.max_id = 0
         self.parent_id = np.full(self.N, np.nan)
         self.alive = np.ones(self.N)
-        self.agebin_mask = np.linspace(0, self.max_age, self.number_of_ages)
+        self.agebin_mask = np.hstack((np.linspace(0, self.max_age, self.number_of_ages-1), self.number_of_ages-1))
         # construct array with probabilites that 0..2*d mutations occur
         self.n_mut_probs = \
                 binom(self.number_of_ages*2, np.arange(self.number_of_ages*2+1)) *\
