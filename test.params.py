@@ -8,7 +8,7 @@ params = {
         "mrate_std" : 0.25, # mutation standard deviation as fraction of trait (gaussian) (absolute)
         "number_of_jumps" : 1000, # number of jumps to simulate
         "init_pop_size" : 10000, # initial population size
-        "number_of_ages" : 11, # number of biological ages
+        "number_of_ages" : 11+1, # number of biological ages (last is just a holder for control locus)
         "max_age" : 10., # maximal biological age
         "init_death" : 0.5, # initial death trait ['random'/float]
         "init_repr": 1.2, # initial reproduction trait ['random'/float]
