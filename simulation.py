@@ -41,8 +41,9 @@ class population_process:
             setattr(self, k, v)
         # initialize pseudo-random number generator
         if not hasattr(self, "prng"):
-            if self.prng_init != "": self.prng = np.random.RandomState(self.prng_init)
-            else: self.prng = np.random.RandomState()
+            if self.prng_init == "":
+                self.prng_init = np.random.randint(1000000)
+            self.prng = np.random.RandomState(self.prng_init)
         # number of living individuals
         self.N = self.init_pop_size
         # individual = (death, reproduction, birth_date, death_date, id, parent_id, alive)
@@ -159,6 +160,7 @@ class population_process:
         self.time += jump_time
 
     def trajectory(self):
+        print "Pseudo-random number generator seed: {0}.".format(self.prng_init)
         print "Jump: {0}. Time: {1}. Population size: {2}.".format(0, round(self.time, 2), self.N)
         for j in range(self.number_of_jumps):
             if self.N > 0:
